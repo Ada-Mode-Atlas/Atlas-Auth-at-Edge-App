@@ -6,9 +6,9 @@ Parameters:
     Type: String
     Description: The application that owns this setup.
 
-  Oauth2Auhtoriser:
+  DiscoveryDocument:
     Type: String
-    Description: Oauth2 Authoriser / Endpoint  such as `https://auth-hub.auth.eu-west-2.amazoncognito.com`
+    Description: Oauth2 openid discover document endpoints such as `https://cognito-idp.___.amazonaws.com/___/.well-known/openid-configuration`
 
   Oauth2RedirectPath:
     Type: String
@@ -27,20 +27,20 @@ Globals:
 
 Resources:
 
-  AuthoriserParameter:
+  DiscoveryParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /prod/auth/authority
+      Name: !Sub /prod/auth/config
       Type: String
-      Value: !Ref Oauth2Auhtoriser
-      Description: SSM Parameter for the Oauth2 Authoriser / Endpoint
+      Value: !Ref DiscoveryDocument
+      Description: SSM Parameter for the Oauth2 Discover Document path
 
   DomainParameter:
     Type: AWS::SSM::Parameter
     Properties:
       Name: !Sub /prod/auth/redirect
       Type: String
-      Value: !Ref Oauth2Domain
+      Value: !Ref Oauth2RedirectPath
       Description: SSM Parameter for the registered Oauth2 Redirect Path
 
   ClientIdParameter:
@@ -57,7 +57,7 @@ Resources:
     Properties:
       AutoPublishAlias: "true"
       CodeUri: ./lambdas/auth
-      Handler: callback_handler
+      Handler: main.callback_handler
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -69,8 +69,6 @@ Resources:
             Action:
               - sts:AssumeRole
       Policies:
-        - AWSSecretsManagerGetSecretValuePolicy:
-            SecretArn: !Ref SecretArn
         - Version: "2012-10-17"
           Statement:
             Action:
@@ -91,7 +89,7 @@ Resources:
     Properties:
       AutoPublishAlias: "true"
       CodeUri: ./lambdas/auth
-      Handler: auth_handler
+      Handler: main.auth_handler
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -103,8 +101,6 @@ Resources:
             Action:
               - sts:AssumeRole
       Policies:
-        - AWSSecretsManagerGetSecretValuePolicy:
-            SecretArn: !Ref SecretArn
         - Version: "2012-10-17"
           Statement:
             Action:

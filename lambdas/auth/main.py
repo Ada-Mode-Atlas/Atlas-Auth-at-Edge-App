@@ -10,21 +10,27 @@ from jose import jwk, jwt
 from jose.utils import base64url_decode
 
 ssm_client = boto3.client("ssm")
-param = ssm_client.get_parameter(Name="/prod/auth/authority")
-__AUTHORITY__ = param["Parameter"]["Value"]
+param = ssm_client.get_parameter(Name="/prod/auth/config")
+__OPENID_CONFIGURATION_URL__ = param["Parameter"]["Value"]
 
 param = ssm_client.get_parameter(Name="/prod/auth/redirect")
 __REDIRECT_PATH__ = param["Parameter"]["Value"]
 
 param = ssm_client.get_parameter(Name="/prod/auth/client_id")
 __CLIENT_ID__ = param["Parameter"]["Value"]
-__TOKEN_URL__ = urljoin(__AUTHORITY__, "/oauth2/token")
-__AUTH_URL__ = urljoin(__AUTHORITY__, "/oauth2/authorize")
 
 
-def get_jkws():
-    keys_url = f"{__AUTHORITY__}/.well-known/jwks.json"
-    with urllib.request.urlopen(keys_url) as f:
+def get_config() -> dict:
+    with urllib.request.urlopen(__OPENID_CONFIGURATION_URL__) as f:
+        response = f.read()
+    return json.loads(response.decode("utf-8"))
+
+
+__CONFIG__ = get_config()
+
+
+def get_jkws() -> dict:
+    with urllib.request.urlopen(__CONFIG__["jwks_uri"]) as f:
         response = f.read()
     keys = json.loads(response.decode("utf-8"))["keys"]
 
@@ -42,7 +48,7 @@ def request_refresh(client_id: str, refresh_token: str) -> tuple[str, str, str]:
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-    res = requests.post(__TOKEN_URL__, params=payload, headers=headers)
+    res = requests.post(__CONFIG__["token_endpoint"], params=payload, headers=headers)
     jwt = res.json()
 
     id_token = jwt["id_token"]
@@ -61,7 +67,7 @@ def request_token(code: str, client_id: str, redirect_uri: str) -> tuple[str, st
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-    res = requests.post(__TOKEN_URL__, params=payload, headers=headers)
+    res = requests.post(__CONFIG__["token_endpoint"], params=payload, headers=headers)
     jwt = res.json()
 
     id_token = jwt["id_token"]
@@ -79,7 +85,7 @@ def request_signin(client_id: str, state: str, redirect_uri: str) -> dict:
             "location": [
                 {
                     "key": "location",
-                    "value": f"{__AUTH_URL__}?client_id={client_id}&response_type=code&scope=email+openid+phone+profile&redirect_uri={redirect_uri}&state={state}",
+                    "value": f"{__CONFIG__['authorization_endpoint']}?client_id={client_id}&response_type=code&scope=email+openid+phone+profile&redirect_uri={redirect_uri}&state={state}",
                 },
             ],
         },
