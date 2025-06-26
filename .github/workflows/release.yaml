@@ -1,0 +1,72 @@
+name: Atlas Release Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        required: false
+        type: choice
+        default: final
+        description: "The release/build scope"
+        options:
+          - alpha
+          - beta
+          - rc
+          - final
+      bump_type:
+        required: false
+        type: choice
+        default: AUTO
+        description: "The version bump increment"
+        options:
+          - PATCH
+          - MINOR
+          - MAJOR
+          - AUTO
+
+jobs:
+  ci: # Find this action here: https://github.com/Ada-Mode-Atlas/Atlas-SDK/blob/main/.github/workflows/template-app-ci.yaml
+    uses: Ada-Mode-Atlas/Atlas-SDK/.github/workflows/template-app-ci.yaml@main # path to the reusable action workflow
+    secrets: inherit
+
+  check:  # Used for the branch protection
+    if: always()
+    outputs:
+      result: ${{ steps.all-green.outputs.result }}
+    needs: [ci]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        id: all-green
+        with:
+          jobs: ${{ toJSON(needs) }}
+
+  bump:
+    uses: Ada-Mode-Atlas/Atlas-SDK/.github/workflows/template-release.yaml@main
+    needs: [check]
+    if: needs.check.outputs.result == 'success'
+    with:
+      create_github_release: true # template defining the stack to update
+      release_type: ${{ inputs.release_type }}
+      bump_type: ${{ inputs.bump_type }}
+
+  cd-default:
+    uses: Ada-Mode-Atlas/Atlas-SDK/.github/workflows/template-sam-cd.yaml@main # path to the reusable action workflow
+    needs: [bump]
+    if: inputs.release_type == 'final'
+    with:
+      sam-template: template.yaml # template defining the stack to update
+      stack-name: atlas-am-e  # name of the stack to update
+      lint: false
+    secrets: inherit # Inherit org level secrets to configure AWS connection
+
+  cd-cnsc:
+    uses: Ada-Mode-Atlas/Atlas-SDK/.github/workflows/template-sam-cd.yaml@main # path to the reusable action workflow
+    needs: [bump]
+    if: inputs.release_type == 'final'
+    with:
+      sam-template: template.yaml # template defining the stack to update
+      stack-name: atlas-cnsc-am-e  # name of the stack to update
+      lint: false
+    secrets: inherit # Inherit org level secrets to configure AWS connection

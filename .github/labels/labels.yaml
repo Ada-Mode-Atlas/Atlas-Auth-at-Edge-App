@@ -1,0 +1,33 @@
+- name: breaking
+  color: "722ED1"
+  description: "Breaking changes or backward-incompatible updates"
+- name: security
+  color: "FFD700"
+  description: "Security updates or fixes"
+- name: feature
+  color: "36CFC9"
+  description: "New features or additions"
+- name: bug
+  color: "F5222D"
+  description: "Bug fixes"
+- name: refactor
+  color: "3498DB"
+  description: "Changes & refactors"
+- name: upgrade
+  color: "FA8C16"
+  description: "Version or environment upgrades"
+- name: docs
+  color: "8C8C8C"
+  description: "Documentation updates & additions"
+- name: internal
+  color: "2F54EB"
+  description: "Changes to packaging or deployment"
+- name: testing
+  color: "2F54EB"
+  description: "Changes or additions to tests"
+- name: other
+  color: "D9D9D9"
+  description: "Miscellaneous changes"
+- name: ignore
+  color: "D9D9D9"
+  description: "Ignored changes"

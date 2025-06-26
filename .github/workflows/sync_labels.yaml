@@ -1,0 +1,20 @@
+name: Atlas SDK Sync Labels Workflow
+
+on:
+  push:
+    paths:
+      - .github/labels/labels.yaml
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Sync Labels
+        uses: EndBug/label-sync@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .github/labels/labels.yaml
+          delete-other-labels: true

@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+Description: Creates Lambda@Edge functions and SSL certificate
+Parameters:
+  StackName:
+    Type: String
+    Description: The application that owns this setup.
+
+  Oauth2Auhtoriser:
+    Type: String
+    Description: Oauth2 Authoriser / Endpoint  such as `https://auth-hub.auth.eu-west-2.amazoncognito.com`
+
+  Oauth2RedirectPath:
+    Type: String
+    Default: /auth/callback
+    Description: Oauth2 registered redirect path
+
+  ClientId:
+    Type: String
+    Description: Oauth2 Client Id client id configured with the provided redirect url and hosted UI
+
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+    Runtime: python3.9
+
+Resources:
+
+  AuthoriserParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /prod/auth/authority
+      Type: String
+      Value: !Ref Oauth2Auhtoriser
+      Description: SSM Parameter for the Oauth2 Authoriser / Endpoint
+
+  DomainParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /prod/auth/redirect
+      Type: String
+      Value: !Ref Oauth2Domain
+      Description: SSM Parameter for the registered Oauth2 Redirect Path
+
+  ClientIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /prod/auth/client_id
+      Type: String
+      Value: !Ref ClientId
+      Description: SSM Parameter for the Oauth2 Client Id
+
+
+  CallbackFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      AutoPublishAlias: "true"
+      CodeUri: ./lambdas/auth
+      Handler: callback_handler
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - edgelambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref SecretArn
+        - Version: "2012-10-17"
+          Statement:
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:GetParametersByPath
+            Effect: Allow
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/auth/*
+        - Version: "2012-10-17"
+          Statement:
+            Action:
+              - lambda:GetFunction
+            Effect: Allow
+            Resource: "*"
+
+  AuthorizeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      AutoPublishAlias: "true"
+      CodeUri: ./lambdas/auth
+      Handler: auth_handler
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - edgelambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref SecretArn
+        - Version: "2012-10-17"
+          Statement:
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:GetParametersByPath
+            Effect: Allow
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/auth/*
+        - Version: "2012-10-17"
+          Statement:
+            Action:
+              - lambda:GetFunction
+            Effect: Allow
+            Resource: "*"
+

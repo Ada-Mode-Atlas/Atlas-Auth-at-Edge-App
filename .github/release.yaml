@@ -1,0 +1,35 @@
+changelog:
+  exclude:
+    labels:
+      - ignore
+  categories:
+    - title: Breaking Changes
+      labels:
+        - breaking
+    - title: Security Fixes
+      labels:
+        - security
+    - title: Features
+      labels:
+        - feature
+    - title: Bug Fixes
+      labels:
+        - bug
+    - title: Refactors
+      labels:
+        - refactor
+    - title: Upgrades
+      labels:
+        - upgrade
+    - title: Docs
+      labels:
+        - docs
+    - title: Internal
+      labels:
+        - internal
+    - title: Testing
+      labels:
+        - testing
+    - title: Other
+      labels:
+        - other

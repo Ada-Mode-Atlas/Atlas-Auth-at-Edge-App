@@ -1,0 +1,31 @@
+breaking:
+  - head-branch: ['^breaking', 'breaking']
+
+security:
+  - head-branch: ['^security', 'security', '^hotfix', 'hotfix']
+
+feature:
+ - head-branch: ['^feature', 'feature', '^feat', 'feat']
+
+bug:
+  - head-branch: ['^fix', 'fix', '^hotfix', 'hotfix', '^bug', 'bug', '^bugfix', 'bugfix']
+
+refactor:
+  - head-branch: ['^change', 'change', '^refactor', 'refactor']
+
+upgrade:
+  - head-branch: ['^performance', 'performance', '^upgrade', 'upgrade']
+
+docs:
+ - head-branch: ['^documentation', 'documentation', '^docs', 'docs']
+ - changed-files:
+   - any-glob-to-any-file: ['**/*.md', docs/*]
+
+internal:
+  - head-branch: ['^bump', 'bump', '^version', 'version', '^packaging', 'packaging', '^internal', 'internal', 'perf' ]
+
+testing:
+  - head-branch: ['^test', 'test', '^tests', 'tests', '^testing', 'testing']
+
+ignore:
+  - head-branch: ['^ignore', 'ignore']

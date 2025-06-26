@@ -1,0 +1,39 @@
+name: Atlas Dev CI/CD Workflow
+
+on:
+  push:
+    branches:
+      - "main"
+
+jobs:
+  ci: # Find this action here: https://github.com/Ada-Mode-Atlas/Atlas-SDK/blob/main/.github/workflows/template-app-ci.yaml
+    uses: Ada-Mode-Atlas/Atlas-SDK/.github/workflows/template-app-ci.yaml@main # path to the reusable action workflow
+    secrets: inherit
+
+  check:  # Used for the branch protection
+    if: always()
+    outputs:
+      result: ${{ steps.all-green.outputs.result }}
+
+    needs: [ci]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        id: all-green
+        with:
+          jobs: ${{ toJSON(needs) }}
+
+  release_notes:
+    uses: Ada-Mode-Atlas/Atlas-SDK/.github/workflows/template-release-notes.yaml@main
+    needs: [check]
+    if: needs.check.outputs.result == 'success'
+
+  cd:
+    uses: Ada-Mode-Atlas/Atlas-SDK/.github/workflows/template-sam-cd.yaml@main # path to the reusable action workflow
+    needs: [release_notes]
+    with:
+      sam-template: template.yaml # template defining the stack to update
+      stack-name: atlas-dev-am-e  # name of the stack to update
+      lint: false
+    secrets: inherit # Inherit org level secrets to configure AWS connection

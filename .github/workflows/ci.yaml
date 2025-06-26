@@ -1,0 +1,12 @@
+name: Atlas PR CI Workflow
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+
+jobs:
+  ci: # Find this action here: https://github.com/Ada-Mode-Atlas/Atlas-SDK/blob/main/.github/workflows/template-app-ci.yaml
+    uses: Ada-Mode-Atlas/Atlas-SDK/.github/workflows/template-app-ci.yaml@main # path to the reusable action workflow
+    secrets: inherit

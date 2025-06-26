@@ -1,0 +1,20 @@
+name: Atlas PR Labelling Workflow
+
+on:
+  pull_request_target:
+    types: [opened]
+
+jobs:
+  auto-labeler:
+    name: auto-labeler
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: label-PR-by-branch-name
+        uses: actions/labeler@v5
+        with:
+          configuration-path: '.github/labels/auto_label.yaml'

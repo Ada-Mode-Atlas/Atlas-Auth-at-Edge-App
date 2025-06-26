@@ -1,0 +1,175 @@
+[project]
+name = "sdk"
+version = "0.3.18"
+description = "Atlas AM-E Application"
+readme = "README.md"
+requires-python = '>=3.12, <3.13'
+authors = [
+    { name = "Ada Mode ltd", email = 'info@ada-mode.com' }
+]
+maintainers = [
+  {name = 'Ada Mode ltd', email = 'info@ada-mode.com'}
+]
+
+dependencies = ["python-jose==3.3.0", "boto3"]
+
+[project.optional-dependencies]
+streamlit = [
+    "atlas-sdk[streamlit]"
+]
+
+[dependency-groups]
+dev = [
+    'alembic',
+    'coverage[toml]',
+    'dirty-equals',
+    'pytest',
+    'pytest-mock',
+    'pytest-pretty',
+    'pytest-examples',
+    'faker',
+    'pytest-benchmark',
+    'pytest-codspeed',
+    'ipykernel',
+    'ipython',
+    'jupyter',
+    'autoflake',
+    'pydoc-markdown',
+    'tomli',
+    'pyupgrade',
+    'dataclasses',
+    'docspec',
+    'eval-type-backport',
+    'ruff',
+    'pyright',
+    'codespell',
+    'pydoclint' ,
+    'mypy',
+    'pyright',
+]
+
+all = [
+  { include-group = 'dev' },
+]
+
+[tool.uv]
+default-groups = ['dev']
+
+[tool.uv.sources]
+atlas-sdk = { git = "https://github.com/Ada-Mode-Atlas/Atlas-SDK.git", rev = "v1.0.5" }
+
+[tool.pytest.ini_options]
+testpaths = 'tests'
+xfail_strict = true
+filterwarnings = [
+    'error',
+    'ignore:path is deprecated.*:DeprecationWarning:',
+]
+addopts = [
+    '--benchmark-columns', 'min,mean,stddev,outliers,rounds,iterations',
+    '--benchmark-group-by', 'group',
+    '--benchmark-warmup', 'on',
+    '--benchmark-disable',
+]
+markers = [
+    'skip_json_schema_validation: Disable JSON Schema validation.',
+]
+
+[tool.ruff]
+line-length = 120
+target-version = 'py312'
+exclude = ["migrations"]
+
+[tool.ruff.lint]
+select = [
+    'F',      # Pyflakes
+    'E',      # pycodestyle (Error)
+    'I',      # isort
+    'D',      # pydocstyle
+    'UP',     # pyupgrade
+    'YTT',    # flake8-2020
+    'B',      # flake8-bugbear
+    'T10',    # flake8-debugger
+    'T20',    # flake8-print
+    'C4',     # flake8-comprehensions
+    'PYI006', # flake8-pyi
+    'PYI062', # flake8-pyi
+    'PYI063', # flake8-pyi
+    'PYI066', # flake8-pyi
+]
+ignore = ['D105', 'E501', 'D107', 'B008', 'D106', 'B904', 'D205', 'D101', 'D102', 'E402']
+flake8-quotes = {inline-quotes = 'double', multiline-quotes = 'double'}
+isort = { known-first-party = ['sdk', 'tests'] }
+mccabe = { max-complexity = 14 }
+pydocstyle = { convention = 'google' }
+
+
+[tool.ruff.lint.per-file-ignores]
+'docs/*' = ['D']
+'sdk/__init__.py' = ['F405', 'F403', 'D']
+'tests/*' = ['D', 'B', 'C4']
+
+
+[tool.ruff.format]
+quote-style = 'double'
+
+[tool.coverage.run]
+source = ['sdk']
+branch = true
+relative_files = true
+context = '${CONTEXT}'
+
+[tool.coverage.report]
+precision = 2
+exclude_lines = [
+    'pragma: no cover',
+    'raise NotImplementedError',
+    'if TYPE_CHECKING:',
+    'if typing.TYPE_CHECKING:',
+    '@overload',
+    '@typing.overload',
+    '\(Protocol\):$',
+    'typing.assert_never',
+    'assert_never',
+]
+
+[tool.coverage.paths]
+source = [
+    'sdk/'
+]
+
+[tool.pyright]
+include = ['sdk', 'tests']
+deprecateTypingAliases = true
+reportDeprecated = true
+typeCheckingMode = "standard"
+
+[tool.codespell]
+skip = '.git,env*,uv.lock,template.yaml'
+
+[tool.pydoclint]
+style='google'
+exclude = '^_(.*)|\.git'
+check-return-types = true
+check-arg-order = true
+skip-checking-raises = true
+ignore-underscore-args = true
+skip-checking-short-docstring = false
+allow-init-docstring = false
+
+
+[tool.commitizen]
+version_provider = "uv"
+version_files = [
+    "sdk/__init__.py"
+]
+update_changelog_on_bump = true
+changelog_file = "./docs/src/release_notes.md"
+changelog_merge_prerelease = true
+template = "CHANGELOG.md.jinja2"
+bump_message = "release: $current_version → $new_version [skip ci]"
+changelog_incremental = false
+tag_format = "v$version"
+
+[tool.commitizen.extras]
+repo_url = "https://github.com/Ada-Mode-Atlas/Application-AM-E-Chatbot"
