@@ -9,7 +9,7 @@ import requests
 from jose import jwk, jwt
 from jose.utils import base64url_decode
 
-ssm_client = boto3.client("ssm")
+ssm_client = boto3.client("ssm", region_name="us-east-1")
 param = ssm_client.get_parameter(Name="/prod/auth/config")
 __OPENID_CONFIGURATION_URL__ = param["Parameter"]["Value"]
 
@@ -70,7 +70,7 @@ def request_token(code: str, client_id: str, redirect_uri: str) -> tuple[str, st
     res = requests.post(__CONFIG__["token_endpoint"], params=payload, headers=headers)
     jwt = res.json()
 
-    id_token = jwt["id_token"]
+    id_token = jwt.get("id_token", "")
     access_token = jwt["access_token"]
     refresh_token = jwt.get("refresh_token", "")
 
@@ -194,7 +194,7 @@ def _build_uri(request: dict) -> str:
     return quote(url, safe="")
 
 
-def auth_handler(event: dict) -> dict:
+def auth_handler(event: dict, context: dict) -> dict:
     request = event["Records"][0]["cf"]["request"]
     headers = request["headers"]
 
@@ -226,7 +226,7 @@ def auth_handler(event: dict) -> dict:
         raise ValueError("Action type is not supported")
 
 
-def callback_handler(event: dict) -> dict:
+def callback_handler(event: dict, context: dict) -> dict:
     request = event["Records"][0]["cf"]["request"]
     qs = request["querystring"]
     query_params = dict(q.split("=") for q in qs.split("&"))
