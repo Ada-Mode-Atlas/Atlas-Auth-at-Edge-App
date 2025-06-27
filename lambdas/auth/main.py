@@ -49,9 +49,16 @@ def request_refresh(client_id: str, refresh_token: str) -> tuple[str, str, str]:
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
     res = requests.post(__CONFIG__["token_endpoint"], params=payload, headers=headers)
+    try:
+        res.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise Exception(f"HTTP error occurred ({res.json()}): {e}")
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"A request error occurred ({res.json()}): {e}")
+
     jwt = res.json()
 
-    id_token = jwt["id_token"]
+    id_token = jwt.get("id_token", "")
     access_token = jwt["access_token"]
     refresh_token = jwt.get("refresh_token", refresh_token)
 
@@ -68,6 +75,13 @@ def request_token(code: str, client_id: str, redirect_uri: str) -> tuple[str, st
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
     res = requests.post(__CONFIG__["token_endpoint"], params=payload, headers=headers)
+    try:
+        res.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise Exception(f"HTTP error occurred ({res.json()}): {e}")
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"A request error occurred ({res.json()}): {e}")
+
     jwt = res.json()
 
     id_token = jwt.get("id_token", "")
@@ -181,7 +195,7 @@ def verify_token(id_token: str) -> Literal["REFRESH", "SIGNIN", "CONTINUE"]:
 
 def _build_redirect_uri(request: dict) -> str:
     host = request["headers"]["host"][0]["value"]
-    return quote(urljoin(f"https://{host}", __REDIRECT_PATH__), safe="")
+    return urljoin(f"https://{host}", __REDIRECT_PATH__)
 
 
 def _build_uri(request: dict) -> str:
@@ -191,7 +205,7 @@ def _build_uri(request: dict) -> str:
 
     url = f"https://{host}{uri}?{query}" if query else f"https://{host}{uri}"
 
-    return quote(url, safe="")
+    return url
 
 
 def auth_handler(event: dict, context: dict) -> dict:
