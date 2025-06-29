@@ -1,46 +1,45 @@
 import json
+import re
 import time
 import urllib.request
 from typing import Literal
-from urllib.parse import quote, unquote, urljoin
+from urllib.parse import unquote, urljoin
 
 import boto3
 import requests
 from jose import jwk, jwt
 from jose.utils import base64url_decode
 
-ssm_client = boto3.client("ssm", region_name="us-east-1")
-param = ssm_client.get_parameter(Name="/prod/auth/config")
-__OPENID_CONFIGURATION_URL__ = param["Parameter"]["Value"]
 
-param = ssm_client.get_parameter(Name="/prod/auth/redirect")
-__REDIRECT_PATH__ = param["Parameter"]["Value"]
+def get_parameters(namespace: str):
+    ssm_client = boto3.client("ssm", region_name="us-east-1")
+    param = ssm_client.get_parameter(Name=f"/{namespace}/auth/config")
+    __OPENID_CONFIGURATION_URL__ = param["Parameter"]["Value"]
 
-param = ssm_client.get_parameter(Name="/prod/auth/client_id")
-__CLIENT_ID__ = param["Parameter"]["Value"]
+    param = ssm_client.get_parameter(Name=f"/{namespace}/auth/redirect")
+    __REDIRECT_PATH__ = param["Parameter"]["Value"]
+
+    param = ssm_client.get_parameter(Name=f"/{namespace}/auth/client_id")
+    __CLIENT_ID__ = param["Parameter"]["Value"]
+
+    return __OPENID_CONFIGURATION_URL__, __REDIRECT_PATH__, __CLIENT_ID__
 
 
-def get_config() -> dict:
-    with urllib.request.urlopen(__OPENID_CONFIGURATION_URL__) as f:
+def get_openid_config(url: str) -> dict:
+    with urllib.request.urlopen(url) as f:
         response = f.read()
     return json.loads(response.decode("utf-8"))
 
 
-__CONFIG__ = get_config()
-
-
-def get_jkws() -> dict:
-    with urllib.request.urlopen(__CONFIG__["jwks_uri"]) as f:
+def get_jkws(config: dict) -> list:
+    with urllib.request.urlopen(config["jwks_uri"]) as f:
         response = f.read()
     keys = json.loads(response.decode("utf-8"))["keys"]
 
     return keys
 
 
-__JWKS__ = get_jkws()
-
-
-def request_refresh(client_id: str, refresh_token: str) -> tuple[str, str, str]:
+def request_refresh(client_id: str, refresh_token: str, config: dict) -> tuple[str, str, str]:
     payload = {
         "grant_type": "refresh_token",
         "client_id": client_id,
@@ -48,7 +47,7 @@ def request_refresh(client_id: str, refresh_token: str) -> tuple[str, str, str]:
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-    res = requests.post(__CONFIG__["token_endpoint"], params=payload, headers=headers)
+    res = requests.post(config["token_endpoint"], params=payload, headers=headers)
     try:
         res.raise_for_status()
     except requests.exceptions.HTTPError as e:
@@ -65,7 +64,7 @@ def request_refresh(client_id: str, refresh_token: str) -> tuple[str, str, str]:
     return id_token, access_token, refresh_token
 
 
-def request_token(code: str, client_id: str, redirect_uri: str) -> tuple[str, str, str]:
+def request_token(code: str, client_id: str, redirect_uri: str, config: dict) -> tuple[str, str, str]:
     payload = {
         "grant_type": "authorization_code",
         "client_id": client_id,
@@ -74,7 +73,7 @@ def request_token(code: str, client_id: str, redirect_uri: str) -> tuple[str, st
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-    res = requests.post(__CONFIG__["token_endpoint"], params=payload, headers=headers)
+    res = requests.post(config["token_endpoint"], params=payload, headers=headers)
     try:
         res.raise_for_status()
     except requests.exceptions.HTTPError as e:
@@ -91,7 +90,7 @@ def request_token(code: str, client_id: str, redirect_uri: str) -> tuple[str, st
     return id_token, access_token, refresh_token
 
 
-def request_signin(client_id: str, state: str, redirect_uri: str) -> dict:
+def request_signin(client_id: str, state: str, redirect_uri: str, config: dict) -> dict:
     response = {
         "status": "307",
         "statusDescription": "Temporary Redirect",
@@ -99,7 +98,7 @@ def request_signin(client_id: str, state: str, redirect_uri: str) -> dict:
             "location": [
                 {
                     "key": "location",
-                    "value": f"{__CONFIG__['authorization_endpoint']}?client_id={client_id}&response_type=code&scope=email+openid+phone+profile&redirect_uri={redirect_uri}&state={state}",
+                    "value": f"{config['authorization_endpoint']}?client_id={client_id}&response_type=code&scope=email+openid+phone+profile&redirect_uri={redirect_uri}&state={state}",
                 },
             ],
         },
@@ -161,7 +160,7 @@ def get_cookies(headers: dict) -> tuple[str, str, str]:
     return id_token, access_token, refresh_token
 
 
-def verify_token(id_token: str) -> Literal["REFRESH", "SIGNIN", "CONTINUE"]:
+def verify_token(id_token: str, jwks: list) -> Literal["REFRESH", "SIGNIN", "CONTINUE"]:
     if not id_token:
         return "SIGNIN"
 
@@ -169,14 +168,14 @@ def verify_token(id_token: str) -> Literal["REFRESH", "SIGNIN", "CONTINUE"]:
     kid = jwtHeaders["kid"]
 
     key_index = -1
-    for i in range(len(__JWKS__)):
-        if kid == __JWKS__[i]["kid"]:
+    for i in range(len(jwks)):
+        if kid == jwks[i]["kid"]:
             key_index = i
             break
     if key_index == -1:
         raise Exception("Public key not found in jwks.json")
 
-    publicKey = jwk.construct(__JWKS__[key_index])
+    publicKey = jwk.construct(jwks[key_index])
 
     message, encoded_signature = str(id_token).rsplit(".", 1)
     decoded_signature = base64url_decode(encoded_signature.encode("utf-8"))
@@ -190,9 +189,9 @@ def verify_token(id_token: str) -> Literal["REFRESH", "SIGNIN", "CONTINUE"]:
     return "CONTINUE"
 
 
-def _build_redirect_uri(request: dict) -> str:
+def _build_redirect_uri(request: dict, redirect_path: str) -> str:
     host = request["headers"]["host"][0]["value"]
-    return urljoin(f"https://{host}", __REDIRECT_PATH__)
+    return urljoin(f"https://{host}", redirect_path)
     # return "https://hub.ada-atlas.com/auth/callback"
 
 
@@ -206,14 +205,26 @@ def _build_uri(request: dict) -> str:
     return url
 
 
+def _extract_namespace(context) -> str:
+    # Expecting format like "auth-handler-prod"
+    match = re.search(r"auth-(?:handler|callback)-([a-zA-Z0-9_-]+)", context.function_name)
+    return match.group(1) if match else "default"
+
+
 def auth_handler(event: dict, context: dict) -> dict:
+    __OPENID_CONFIGURATION_URL__, __REDIRECT_PATH__, __CLIENT_ID__ = get_parameters(
+        namespace=_extract_namespace(context)
+    )
+    __CONFIG__ = get_openid_config(url=__OPENID_CONFIGURATION_URL__)
+    __JWKS__ = get_jkws(config=__CONFIG__)
+
     request = event["Records"][0]["cf"]["request"]
     headers = request["headers"]
 
     id_token, access_token, refresh_token = get_cookies(headers)
 
     try:
-        action = verify_token(id_token)
+        action = verify_token(id_token, jwks=__JWKS__)
     except Exception:
         return {
             "status": "403",
@@ -225,20 +236,28 @@ def auth_handler(event: dict, context: dict) -> dict:
         return request
 
     elif action == "REFRESH":
-        id_token, access_token, refresh_token = request_refresh(client_id=__CLIENT_ID__, refresh_token=refresh_token)
+        id_token, access_token, refresh_token = request_refresh(
+            client_id=__CLIENT_ID__, refresh_token=refresh_token, config=__CONFIG__
+        )
         return set_cookies(request=request, id_token=id_token, access_token=access_token, refresh_token=refresh_token)
 
     elif action == "SIGNIN":
         return request_signin(
             client_id=__CLIENT_ID__,
             state=_build_uri(request),
-            redirect_uri=_build_redirect_uri(request),
+            redirect_uri=_build_redirect_uri(request, __REDIRECT_PATH__),
+            config=__CONFIG__,
         )
     else:
         raise ValueError("Action type is not supported")
 
 
 def callback_handler(event: dict, context: dict) -> dict:
+    __OPENID_CONFIGURATION_URL__, __REDIRECT_PATH__, __CLIENT_ID__ = get_parameters(
+        namespace=_extract_namespace(context)
+    )
+    __CONFIG__ = get_openid_config(url=__OPENID_CONFIGURATION_URL__)
+
     request = event["Records"][0]["cf"]["request"]
     qs = request["querystring"]
     query_params = dict(q.split("=") for q in qs.split("&"))
@@ -246,7 +265,8 @@ def callback_handler(event: dict, context: dict) -> dict:
     id_token, access_token, refresh_token = request_token(
         code=query_params["code"],
         client_id=__CLIENT_ID__,
-        redirect_uri=_build_redirect_uri(request),
+        redirect_uri=_build_redirect_uri(request, __REDIRECT_PATH__),
+        config=__CONFIG__,
     )
     target_uri = unquote(query_params["state"])
     response = {

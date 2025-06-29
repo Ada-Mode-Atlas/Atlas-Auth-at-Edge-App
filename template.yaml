@@ -4,7 +4,9 @@ Description: Creates Lambda@Edge functions and SSL certificate
 Parameters:
   StackName:
     Type: String
-    Description: The application that owns this setup.
+    Description: The application that owns this setup and parameter namespace.
+    AllowedPattern: '^[a-zA-Z0-9_-]+$'
+    ConstraintDescription: "Only letters, numbers, hyphens, and underscores are allowed (no spaces or special characters)."
 
   DiscoveryDocument:
     Type: String
@@ -17,7 +19,7 @@ Parameters:
 
   ClientId:
     Type: String
-    Description: Oauth2 Client Id client id configured with the provided redirect url and hosted UI
+    Description: Oauth2 Client Id configured with the provided redirect url and hosted UI
 
 Globals:
   Function:
@@ -30,7 +32,7 @@ Resources:
   DiscoveryParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /prod/auth/config
+      Name: !Sub /${StackName}/auth/config
       Type: String
       Value: !Ref DiscoveryDocument
       Description: SSM Parameter for the Oauth2 Discover Document path
@@ -38,7 +40,7 @@ Resources:
   DomainParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /prod/auth/redirect
+      Name: !Sub /${StackName}/auth/redirect
       Type: String
       Value: !Ref Oauth2RedirectPath
       Description: SSM Parameter for the registered Oauth2 Redirect Path
@@ -46,7 +48,7 @@ Resources:
   ClientIdParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /prod/auth/client_id
+      Name: !Sub /${StackName}/auth/client_id
       Type: String
       Value: !Ref ClientId
       Description: SSM Parameter for the Oauth2 Client Id
@@ -55,6 +57,7 @@ Resources:
   CallbackFunction:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: !Sub auth-callback-${StackName}
       AutoPublishAlias: "true"
       CodeUri: ./lambdas/auth
       Handler: main.callback_handler
@@ -87,6 +90,7 @@ Resources:
   AuthorizeFunction:
     Type: AWS::Serverless::Function
     Properties:
+      !Sub auth-handler-${StackName}
       AutoPublishAlias: "true"
       CodeUri: ./lambdas/auth
       Handler: main.auth_handler
