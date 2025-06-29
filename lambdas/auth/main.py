@@ -116,7 +116,7 @@ def set_cookies(request: dict, id_token: str, access_token: str, refresh_token: 
             {
                 "key": "Set-Cookie",
                 "value": f"ATLAS_ID_TOKEN={id_token}",
-                "attributes": "Path=/; Secure; HttpOnly; SameSite=Lax",
+                "attributes": "Path=/; Secure; HttpOnly; SameSite=None;",
             }
         )
 
@@ -125,7 +125,7 @@ def set_cookies(request: dict, id_token: str, access_token: str, refresh_token: 
             {
                 "key": "Set-Cookie",
                 "value": f"ATLAS_ACCESS_TOKEN={access_token}",
-                "attributes": "Path=/; Secure; HttpOnly; SameSite=Lax",
+                "attributes": "Path=/; Secure; HttpOnly; SameSite=None;",
             }
         )
 
@@ -134,7 +134,7 @@ def set_cookies(request: dict, id_token: str, access_token: str, refresh_token: 
             {
                 "key": "Set-Cookie",
                 "value": f"ATLAS_REFRESH_TOKEN={refresh_token}",
-                "attributes": "Path=/; Secure; HttpOnly; SameSite=Lax",
+                "attributes": "Path=/; Secure; HttpOnly; SameSite=None;",
             }
         )
 
@@ -196,6 +196,7 @@ def verify_token(id_token: str) -> Literal["REFRESH", "SIGNIN", "CONTINUE"]:
 def _build_redirect_uri(request: dict) -> str:
     host = request["headers"]["host"][0]["value"]
     return urljoin(f"https://{host}", __REDIRECT_PATH__)
+    # return "https://hub.ada-atlas.com/auth/callback"
 
 
 def _build_uri(request: dict) -> str:
@@ -251,17 +252,40 @@ def callback_handler(event: dict, context: dict) -> dict:
         redirect_uri=_build_redirect_uri(request),
     )
 
+    # response = {
+    #     "status": "302",
+    #     "statusDescription": "Found",
+    #     "headers": {
+    #         "location": [
+    #             {
+    #                 "key": "location",
+    #                 "value": unquote(query_params["state"]),
+    #             },
+    #         ]
+    #     },
+    # }
+
+    target_uri = unquote(query_params["state"])
+
+    html_body = f"""
+        <html>
+            <head>
+                <meta http-equiv="refresh" content="0; url={target_uri}" />
+            </head>
+            <body>
+                Redirecting to <a href="{target_uri}">{target_uri}</a>...
+            </body>
+        </html>
+    """
+
     response = {
-        "status": "307",
-        "statusDescription": "Temporary Redirect",
+        "status": "200",
+        "statusDescription": "OK",
         "headers": {
-            "location": [
-                {
-                    "key": "location",
-                    "value": unquote(query_params["state"]),
-                },
-            ]
+            "content-type": [{"key": "Content-Type", "value": "text/html"}],
+            "cache-control": [{"key": "Cache-Control", "value": "no-store"}],
         },
+        "body": html_body,
     }
 
     return set_cookies(response, id_token=id_token, access_token=access_token, refresh_token=refresh_token)
