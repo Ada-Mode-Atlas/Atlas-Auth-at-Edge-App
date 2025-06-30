@@ -75,9 +75,12 @@ local-sam-deploy:
 init-sam-deploy:
 	sam deploy --guided --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
 
-app-path ?= ./lambdas/api.py
-start-api:
-	uv run --env-file .env fastapi dev
+
+sam-publish:
+	sam package --output-template-file packaged.yaml --s3-bucket ada-mode-atlas
+	sam publish --template packaged.yaml --region us-east-1
+
+
 
 help:
 	@grep -E \

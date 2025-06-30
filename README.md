@@ -28,7 +28,7 @@ This may look like this:
 * Create a behaviour on path `/auth/callback` pointing to your custom origin (or matching whatver value was used for the callback stack parameter) with caching disabled
 * Add a lambda@edge integration to this new bevahiour to use the callback handler
 
-This will now enforce authentication on each configured b
+This will now enforce authentication on each configured behaviour.
 
 ## Limitations
 
@@ -36,5 +36,5 @@ This application is only suitable for a single App Client, multiple instances wi
 
 ## Updates
 
-When integrating a lambda function on edge use must specify a versioned function ARN such as `arn:aws:lambda:us-east-1:{AccountId}:function:{StackName}-AuthorizeFunction-.../1`, hence if you deploy an updated instance of this application you will need to increment the ARN within the cloudfront behaviour integrations.
+When integrating a lambda function on edge use must specify a versioned function ARN such as `arn:aws:lambda:us-east-1:{AccountId}:function:{StackName}-AuthorizeFunction-...:1`, hence if you deploy an updated instance of this application you will need to increment the ARN within the cloudfront behaviour integrations.
 

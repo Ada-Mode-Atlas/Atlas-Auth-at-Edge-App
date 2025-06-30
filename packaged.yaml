@@ -1,0 +1,145 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Creates Lambda@Edge functions and SSL certificate
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: Atlas-Auth-at-Edge
+    Description: OAuth2 authorisation code flow running on the edge (via cloudfront
+      and Lambda@edge)
+    Author: Nick Barton @ Ada Mode
+    SpdxLicenseId: Apache-2.0
+    ReadmeUrl: s3://ada-mode-atlas/8bdb2e6c24c9c19e199c3678911a2d07
+    Labels:
+    - oauth2
+    HomePageUrl: https://github.com/Ada-Mode-Atlas/Atlas-Auth-at-Edge-App
+    SemanticVersion: 1.0.0
+    SourceCodeUrl: https://github.com/Ada-Mode-Atlas/Atlas-Auth-at-Edge-App
+Parameters:
+  StackName:
+    Type: String
+    Description: The application that owns this setup and parameter namespace.
+    AllowedPattern: ^[a-zA-Z0-9_-]+$
+    ConstraintDescription: Only letters, numbers, hyphens, and underscores are allowed
+      (no spaces or special characters).
+  DiscoveryDocument:
+    Type: String
+    Description: Oauth2 openid discover document endpoints such as `https://cognito-idp.___.amazonaws.com/___/.well-known/openid-configuration`
+  Oauth2RedirectPath:
+    Type: String
+    Default: /auth/callback
+    Description: Oauth2 registered redirect path
+  ClientId:
+    Type: String
+    Description: Oauth2 Client Id configured with the provided redirect url and hosted
+      UI
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+    Runtime: python3.9
+Resources:
+  DiscoveryParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name:
+        Fn::Sub: /${StackName}/auth/config
+      Type: String
+      Value:
+        Ref: DiscoveryDocument
+      Description: SSM Parameter for the Oauth2 Discover Document path
+    Metadata:
+      SamResourceId: DiscoveryParameter
+  DomainParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name:
+        Fn::Sub: /${StackName}/auth/redirect
+      Type: String
+      Value:
+        Ref: Oauth2RedirectPath
+      Description: SSM Parameter for the registered Oauth2 Redirect Path
+    Metadata:
+      SamResourceId: DomainParameter
+  ClientIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name:
+        Fn::Sub: /${StackName}/auth/client_id
+      Type: String
+      Value:
+        Ref: ClientId
+      Description: SSM Parameter for the Oauth2 Client Id
+    Metadata:
+      SamResourceId: ClientIdParameter
+  CallbackFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: auth-callback-${StackName}
+      AutoPublishAlias: 'true'
+      CodeUri: s3://ada-mode-atlas/b6e19305a43a0a2979596acdda740be9
+      Handler: main.callback_handler
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+            - edgelambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+          Action:
+          - ssm:GetParameter
+          - ssm:GetParameters
+          - ssm:GetParametersByPath
+          Effect: Allow
+          Resource:
+            Fn::Sub: arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/auth/*
+      - Version: '2012-10-17'
+        Statement:
+          Action:
+          - lambda:GetFunction
+          Effect: Allow
+          Resource: '*'
+    Metadata:
+      SamResourceId: CallbackFunction
+  AuthorizeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: auth-handler-${StackName}
+      AutoPublishAlias: 'true'
+      CodeUri: s3://ada-mode-atlas/b6e19305a43a0a2979596acdda740be9
+      Handler: main.auth_handler
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+            - edgelambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+          Action:
+          - ssm:GetParameter
+          - ssm:GetParameters
+          - ssm:GetParametersByPath
+          Effect: Allow
+          Resource:
+            Fn::Sub: arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/auth/*
+      - Version: '2012-10-17'
+        Statement:
+          Action:
+          - lambda:GetFunction
+          Effect: Allow
+          Resource: '*'
+    Metadata:
+      SamResourceId: AuthorizeFunction
