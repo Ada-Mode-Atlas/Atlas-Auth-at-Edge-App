@@ -2,7 +2,7 @@
 
 Easily add OAuth2 flows to apply authorization to any content served through AWS Cloudfront.
 
-Note: This application must be deployed in us-east-1.
+Note: This application must be deployed in us-east-1. You can deploy instances of the app [here](https://us-east-1.console.aws.amazon.com/serverlessrepo/home?region=us-east-1#/published-applications/arn:aws:serverlessrepo:us-east-1:539182614893:applications~Atlas-Auth-at-Edge).
 
 ## Requirements
 

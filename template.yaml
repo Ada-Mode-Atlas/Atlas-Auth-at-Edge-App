@@ -6,7 +6,7 @@ Metadata:
   AWS::ServerlessRepo::Application:
     Name: Atlas-Auth-at-Edge
     Description: OAuth2 authorisation code flow running on the edge (via cloudfront and Lambda@edge)
-    Author: Nick Barton @ Ada Mode
+    Author: ada
     SpdxLicenseId: Apache-2.0
     ReadmeUrl: README.md
     Labels: ['oauth2']
@@ -23,7 +23,7 @@ Parameters:
 
   DiscoveryDocument:
     Type: String
-    Description: Oauth2 openid discover document endpoints such as `https://cognito-idp.___.amazonaws.com/___/.well-known/openid-configuration`
+    Description: Oauth2 openid discovery document endpoints such as `https://cognito-idp.___.amazonaws.com/___/.well-known/openid-configuration`
 
   Oauth2RedirectPath:
     Type: String
@@ -50,7 +50,7 @@ Resources:
       Value: !Ref DiscoveryDocument
       Description: SSM Parameter for the Oauth2 Discover Document path
 
-  DomainParameter:
+  RedirectParameter:
     Type: AWS::SSM::Parameter
     Properties:
       Name: !Sub /${StackName}/auth/redirect
