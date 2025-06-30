@@ -66,7 +66,6 @@ Resources:
       Value: !Ref ClientId
       Description: SSM Parameter for the Oauth2 Client Id
 
-
   CallbackFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -133,3 +132,11 @@ Resources:
             Effect: Allow
             Resource: "*"
 
+Outputs:
+
+  AuthHandler:
+    Value: !GetAtt AuthorizeFunction.Arn
+    Description: The auth handler ARN (use the latest version)
+  CallbackHandler:
+    Value: !GetAtt CallbackFunction.Arn
+    Description: The callback handler ARN (use the latest version)
