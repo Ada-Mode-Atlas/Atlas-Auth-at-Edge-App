@@ -50,7 +50,7 @@ Resources:
       Value: !Ref DiscoveryDocument
       Description: SSM Parameter for the Oauth2 Discover Document path
 
-  RedirectParameter:
+  DomainParameter:
     Type: AWS::SSM::Parameter
     Properties:
       Name: !Sub /${StackName}/auth/redirect

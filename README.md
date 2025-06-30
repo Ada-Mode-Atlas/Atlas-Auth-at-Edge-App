@@ -16,6 +16,7 @@ If the openid configuration is taked from a cognito userpool it must have a corr
 A deployed instance of the application creates the following resources:
 * Auth Handler: A lambda function in a python runtime suitable to running on the edge and initiate oauth2 flows and coordinate sign-in, refresh or permit access
 * Callback Handler: A lambda function in a python runtime suitable to running on the edge and respond to IdP auth code provision and collect tokens
+* ReWrite Handler: A commonly required index.html rewrite handler to support access static content by appending index.html (to be used on origin-request actions)
 * SSM Parameters: A set of parameters controlling the IdP including the client Id, Callback path & discovery document URL
 
 ## Integration
@@ -27,6 +28,7 @@ This may look like this:
 * Create a custom origin (named something like `auth-callback-origin`)
 * Create a behaviour on path `/auth/callback` pointing to your custom origin (or matching whatver value was used for the callback stack parameter) with caching disabled
 * Add a lambda@edge integration to this new bevahiour to use the callback handler
+* Optionally apply the index.html rewrite handler to any behaviours that use (such as those acting as entrypoints to static sites.)
 
 This will now enforce authentication on each configured behaviour.
 
