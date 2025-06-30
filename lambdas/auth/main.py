@@ -160,11 +160,11 @@ def get_cookies(headers: dict) -> tuple[str, str, str]:
     return id_token, access_token, refresh_token
 
 
-def verify_token(id_token: str, jwks: list) -> Literal["REFRESH", "SIGNIN", "CONTINUE"]:
-    if not id_token:
+def verify_token(access_token: str, jwks: list) -> Literal["REFRESH", "SIGNIN", "CONTINUE"]:
+    if not access_token:
         return "SIGNIN"
 
-    jwtHeaders = jwt.get_unverified_headers(id_token)
+    jwtHeaders = jwt.get_unverified_headers(access_token)
     kid = jwtHeaders["kid"]
 
     key_index = -1
@@ -177,12 +177,12 @@ def verify_token(id_token: str, jwks: list) -> Literal["REFRESH", "SIGNIN", "CON
 
     publicKey = jwk.construct(jwks[key_index])
 
-    message, encoded_signature = str(id_token).rsplit(".", 1)
+    message, encoded_signature = str(access_token).rsplit(".", 1)
     decoded_signature = base64url_decode(encoded_signature.encode("utf-8"))
     if not publicKey.verify(message.encode("utf8"), decoded_signature):
         raise Exception("Signature verification failed")
 
-    claims = jwt.get_unverified_claims(id_token)
+    claims = jwt.get_unverified_claims(access_token)
     if time.time() > claims["exp"]:
         return "REFRESH"
 
@@ -205,15 +205,15 @@ def _build_uri(request: dict) -> str:
     return url
 
 
-def _extract_namespace(context) -> str:
+def _extract_namespace(fn_name) -> str:
     # Expecting format like "auth-handler-prod"
-    match = re.search(r"auth-(?:handler|callback)-([a-zA-Z0-9_-]+)", context.function_name)
+    match = re.search(r"auth-(?:handler|callback)-([a-zA-Z0-9_-]+)", fn_name)
     return match.group(1) if match else "default"
 
 
-def auth_handler(event: dict, context: dict) -> dict:
+def auth_handler(event: dict, context) -> dict:
     __OPENID_CONFIGURATION_URL__, __REDIRECT_PATH__, __CLIENT_ID__ = get_parameters(
-        namespace=_extract_namespace(context)
+        namespace=_extract_namespace(context.function_name)
     )
     __CONFIG__ = get_openid_config(url=__OPENID_CONFIGURATION_URL__)
     __JWKS__ = get_jkws(config=__CONFIG__)
@@ -252,9 +252,9 @@ def auth_handler(event: dict, context: dict) -> dict:
         raise ValueError("Action type is not supported")
 
 
-def callback_handler(event: dict, context: dict) -> dict:
+def callback_handler(event: dict, context) -> dict:
     __OPENID_CONFIGURATION_URL__, __REDIRECT_PATH__, __CLIENT_ID__ = get_parameters(
-        namespace=_extract_namespace(context)
+        namespace=_extract_namespace(context.function_name)
     )
     __CONFIG__ = get_openid_config(url=__OPENID_CONFIGURATION_URL__)
 
