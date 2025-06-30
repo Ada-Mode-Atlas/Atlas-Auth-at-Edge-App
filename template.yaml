@@ -92,7 +92,7 @@ Resources:
               - ssm:GetParameters
               - ssm:GetParametersByPath
             Effect: Allow
-            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/auth/*
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${StackName}/auth/*
         - Version: "2012-10-17"
           Statement:
             Action:
@@ -125,7 +125,7 @@ Resources:
               - ssm:GetParameters
               - ssm:GetParametersByPath
             Effect: Allow
-            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/auth/*
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${StackName}/auth/*
         - Version: "2012-10-17"
           Statement:
             Action:
