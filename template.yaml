@@ -132,6 +132,31 @@ Resources:
             Effect: Allow
             Resource: "*"
 
+  ReWriteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub rewrite-index-handler-${StackName}
+      AutoPublishAlias: "true"
+      CodeUri: ./lambdas/rewrite
+      Handler: main.handler
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - edgelambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            Action:
+              - lambda:GetFunction
+            Effect: Allow
+            Resource: "*"
+
 Outputs:
 
   AuthHandler:
@@ -140,3 +165,6 @@ Outputs:
   CallbackHandler:
     Value: !GetAtt CallbackFunction.Arn
     Description: The callback handler ARN (use the latest version)
+  ReWriteHandler:
+    Value: !GetAtt ReWriteFunction.Arn
+    Description: An index.html rewrite handler ARN (use the latest version)
