@@ -77,10 +77,8 @@ init-sam-deploy:
 
 
 sam-publish:
-	sam package --output-template-file packaged.yaml --s3-bucket ada-mode-atlas
-	sam publish --template packaged.yaml --region us-east-1
-
-
+	sam package --output-template-file .aws-sam/packaged.yaml --s3-bucket ada-mode-atlas
+	sam publish --template .aws-sam/packaged.yaml --region us-east-1
 
 help:
 	@grep -E \
