@@ -236,10 +236,21 @@ def auth_handler(event: dict, context) -> dict:
         return request
 
     elif action == "REFRESH":
-        id_token, access_token, refresh_token = request_refresh(
-            client_id=__CLIENT_ID__, refresh_token=refresh_token, config=__CONFIG__
-        )
-        return set_cookies(request=request, id_token=id_token, access_token=access_token, refresh_token=refresh_token)
+        try:
+            id_token, access_token, refresh_token = request_refresh(
+                client_id=__CLIENT_ID__, refresh_token=refresh_token, config=__CONFIG__
+            )
+        except Exception as _:
+            return request_signin(
+                client_id=__CLIENT_ID__,
+                state=_build_uri(request),
+                redirect_uri=_build_redirect_uri(request, __REDIRECT_PATH__),
+                config=__CONFIG__,
+            )
+        else:
+            return set_cookies(
+                request=request, id_token=id_token, access_token=access_token, refresh_token=refresh_token
+            )
 
     elif action == "SIGNIN":
         return request_signin(
