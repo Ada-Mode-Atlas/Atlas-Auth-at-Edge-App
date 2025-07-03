@@ -37,7 +37,7 @@ async def get_openid_config(url: str) -> dict:
             return await resp.json()
 
 
-async def get_jkws(config: dict) -> list:
+async def get_jkws(config: dict) -> dict:
     async with aiohttp.ClientSession() as session:
         async with session.get(config["jwks_uri"]) as resp:
             resp.raise_for_status()
