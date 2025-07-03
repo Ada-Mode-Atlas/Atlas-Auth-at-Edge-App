@@ -165,22 +165,24 @@ def get_cookies(headers: dict) -> tuple[str, str, str]:
     return id_token, access_token, refresh_token
 
 
-def verify_token(access_token: str, jwks: list) -> Literal["REFRESH", "SIGNIN", "CONTINUE"]:
+def verify_token(access_token: str, jwks: dict) -> Literal["REFRESH", "SIGNIN", "CONTINUE"]:
     if not access_token:
         return "SIGNIN"
 
     jwtHeaders = jwt.get_unverified_headers(access_token)
     kid = jwtHeaders["kid"]
 
+    keys = jwks["keys"]
+
     key_index = -1
-    for i in range(len(jwks)):
-        if kid == jwks[i]["kid"]:
+    for i in range(len(keys)):
+        if kid == keys[i]["kid"]:
             key_index = i
             break
     if key_index == -1:
         raise Exception("Public key not found in jwks.json")
 
-    publicKey = jwk.construct(jwks[key_index])
+    publicKey = jwk.construct(keys[key_index])
 
     message, encoded_signature = str(access_token).rsplit(".", 1)
     decoded_signature = base64url_decode(encoded_signature.encode("utf-8"))
