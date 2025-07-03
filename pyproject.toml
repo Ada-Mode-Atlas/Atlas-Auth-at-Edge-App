@@ -11,7 +11,11 @@ maintainers = [
   {name = 'Ada Mode ltd', email = 'info@ada-mode.com'}
 ]
 
-dependencies = ["python-jose==3.3.0", "boto3"]
+dependencies = [
+    "python-jose==3.3.0",
+ "boto3",
+ "aiohttp>=3.12.13",
+]
 
 [project.optional-dependencies]
 streamlit = [

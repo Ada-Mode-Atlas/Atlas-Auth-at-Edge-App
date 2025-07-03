@@ -1,42 +1,47 @@
-import json
+import asyncio
 import re
 import time
-import urllib.request
 from typing import Literal
 from urllib.parse import unquote, urljoin
 
+import aiohttp
 import boto3
 import requests
 from jose import jwk, jwt
 from jose.utils import base64url_decode
 
-
-def get_parameters(namespace: str):
-    ssm_client = boto3.client("ssm", region_name="us-east-1")
-    param = ssm_client.get_parameter(Name=f"/{namespace}/auth/config")
-    __OPENID_CONFIGURATION_URL__ = param["Parameter"]["Value"]
-
-    param = ssm_client.get_parameter(Name=f"/{namespace}/auth/redirect")
-    __REDIRECT_PATH__ = param["Parameter"]["Value"]
-
-    param = ssm_client.get_parameter(Name=f"/{namespace}/auth/client_id")
-    __CLIENT_ID__ = param["Parameter"]["Value"]
-
-    return __OPENID_CONFIGURATION_URL__, __REDIRECT_PATH__, __CLIENT_ID__
+ssm_client = boto3.client("ssm", region_name="us-east-1")
 
 
-def get_openid_config(url: str) -> dict:
-    with urllib.request.urlopen(url) as f:
-        response = f.read()
-    return json.loads(response.decode("utf-8"))
+async def _get_param(name: str) -> str:
+    response = await asyncio.to_thread(ssm_client.get_parameter, Name=name)
+    return response["Parameter"]["Value"]
 
 
-def get_jkws(config: dict) -> list:
-    with urllib.request.urlopen(config["jwks_uri"]) as f:
-        response = f.read()
-    keys = json.loads(response.decode("utf-8"))["keys"]
+async def get_openid_configuration_url(namespace: str) -> str:
+    return await _get_param(f"/{namespace}/auth/config")
 
-    return keys
+
+async def get_redirect_path(namespace: str) -> str:
+    return await _get_param(f"/{namespace}/auth/redirect")
+
+
+async def get_client_id(namespace: str) -> str:
+    return await _get_param(f"/{namespace}/auth/client_id")
+
+
+async def get_openid_config(url: str) -> dict:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            resp.raise_for_status()
+            return await resp.json()
+
+
+async def get_jkws(config: dict) -> list:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(config["jwks_uri"]) as resp:
+            resp.raise_for_status()
+            return await resp.json()
 
 
 def request_refresh(client_id: str, refresh_token: str, config: dict) -> tuple[str, str, str]:
@@ -192,7 +197,6 @@ def verify_token(access_token: str, jwks: list) -> Literal["REFRESH", "SIGNIN", 
 def _build_redirect_uri(request: dict, redirect_path: str) -> str:
     host = request["headers"]["host"][0]["value"]
     return urljoin(f"https://{host}", redirect_path)
-    # return "https://hub.ada-atlas.com/auth/callback"
 
 
 def _build_uri(request: dict) -> str:
@@ -211,12 +215,12 @@ def _extract_namespace(fn_name) -> str:
     return match.group(1) if match else "default"
 
 
-def auth_handler(event: dict, context) -> dict:
-    __OPENID_CONFIGURATION_URL__, __REDIRECT_PATH__, __CLIENT_ID__ = get_parameters(
-        namespace=_extract_namespace(context.function_name)
-    )
-    __CONFIG__ = get_openid_config(url=__OPENID_CONFIGURATION_URL__)
-    __JWKS__ = get_jkws(config=__CONFIG__)
+async def _auth_handler(event: dict, context) -> dict:
+    namespace = _extract_namespace(context.function_name)
+
+    __OPENID_CONFIGURATION_URL__ = await get_openid_configuration_url(namespace=namespace)
+    __CONFIG__ = await get_openid_config(url=__OPENID_CONFIGURATION_URL__)
+    __JWKS__ = await get_jkws(config=__CONFIG__)
 
     request = event["Records"][0]["cf"]["request"]
     headers = request["headers"]
@@ -224,7 +228,7 @@ def auth_handler(event: dict, context) -> dict:
     id_token, access_token, refresh_token = get_cookies(headers)
 
     try:
-        action = verify_token(id_token, jwks=__JWKS__)
+        action = verify_token(access_token, jwks=__JWKS__)
     except Exception:
         return {
             "status": "403",
@@ -235,7 +239,10 @@ def auth_handler(event: dict, context) -> dict:
     if action == "CONTINUE":
         return request
 
-    elif action == "REFRESH":
+    __CLIENT_ID__ = await get_client_id(namespace=namespace)
+    __REDIRECT_PATH__ = await get_redirect_path(namespace=namespace)
+
+    if action == "REFRESH":
         try:
             id_token, access_token, refresh_token = request_refresh(
                 client_id=__CLIENT_ID__, refresh_token=refresh_token, config=__CONFIG__
@@ -263,11 +270,17 @@ def auth_handler(event: dict, context) -> dict:
         raise ValueError("Action type is not supported")
 
 
-def callback_handler(event: dict, context) -> dict:
-    __OPENID_CONFIGURATION_URL__, __REDIRECT_PATH__, __CLIENT_ID__ = get_parameters(
-        namespace=_extract_namespace(context.function_name)
-    )
-    __CONFIG__ = get_openid_config(url=__OPENID_CONFIGURATION_URL__)
+def auth_handler(event: dict, context) -> dict:
+    return asyncio.run(_auth_handler(event, context))
+
+
+async def _callback_handler(event: dict, context) -> dict:
+    namespace = _extract_namespace(context.function_name)
+
+    __OPENID_CONFIGURATION_URL__ = await get_openid_configuration_url(namespace=namespace)
+    __CONFIG__ = await get_openid_config(url=__OPENID_CONFIGURATION_URL__)
+    __CLIENT_ID__ = await get_client_id(namespace=namespace)
+    __REDIRECT_PATH__ = await get_redirect_path(namespace=namespace)
 
     request = event["Records"][0]["cf"]["request"]
     qs = request["querystring"]
@@ -294,3 +307,7 @@ def callback_handler(event: dict, context) -> dict:
     }
 
     return set_cookies(response, id_token=id_token, access_token=access_token, refresh_token=refresh_token)
+
+
+def callback_handler(event: dict, context) -> dict:
+    return asyncio.run(_callback_handler(event, context))
